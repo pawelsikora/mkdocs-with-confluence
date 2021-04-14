@@ -12,9 +12,6 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'mkdocs>=1.1',
-        'md2cf',
-        'mimetypes',
-        'mistune',
         'jinja2'
     ],
     packages=find_packages(),
