@@ -24,3 +24,5 @@ codecov:
     # to avoid confusion. Note that this value is set to the number of Azure
     # Pipeline jobs uploading coverage reports.
     after_n_builds: 6
+  token: 21ccebfb-1239-4ec6-a01d-039067b9ab30
+
