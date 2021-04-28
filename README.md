@@ -1,4 +1,4 @@
-[![Actions Status](https://github.com/pawelsikora/mkdocs-with-confluence/workflows/pytest/badge.svg)](https://github.com/pawelsikora/mkdocs-with-confluence/actions)
+![Actions Status](https://github.com/pawelsikora/mkdocs-with-confluence/workflows/pytest/badge.svg)](https://github.com/pawelsikora/mkdocs-with-confluence/actions)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mkdocs-with-confluence)
 ![PyPI](https://img.shields.io/pypi/v/mkdocs-with-confluence)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/mkdocs-with-confluence)
