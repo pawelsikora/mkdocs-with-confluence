@@ -1,4 +1,4 @@
 pre-commit
-mimetypes
+mime
 mistune
 md2cf
