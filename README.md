@@ -1,10 +1,9 @@
-![Actions Status](https://github.com/pawelsikora/mkdocs-with-confluence/workflows/pytest/badge.svg)](https://github.com/pawelsikora/mkdocs-with-confluence/actions)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mkdocs-with-confluence)
 ![PyPI](https://img.shields.io/pypi/v/mkdocs-with-confluence)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/mkdocs-with-confluence)
 [![codecov](https://codecov.io/gh/pawelsikora/mkdocs-with-confluence/branch/master/graph/badge.svg)](https://codecov.io/gh/pawelsikora/mkdocs-with-confluence)
 ![GitHub contributors](https://img.shields.io/github/contributors/pawelsikora/mkdocs-with-confluence)
-![PyPI - License](https://img.shields.io/pypi/l/mkdocs-with-confluence
+![PyPI - License](https://img.shields.io/pypi/l/mkdocs-with-confluence)
 # mkdocs-with-confluence 
 
 MkDocs plugin that converts markdown pages into confluence markup
