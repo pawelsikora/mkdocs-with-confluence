@@ -133,5 +133,5 @@ def find_page_version(name):
 # update_page("Test Page")
 # find_page_version("Test Page")
 # find_parent_name_of_page("Test Parent Page")
-# find_page_id("Test page", "Test parent page")
+# find_page_id("Test Page")
 # upload_attachment()

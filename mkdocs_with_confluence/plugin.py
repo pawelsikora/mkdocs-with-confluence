@@ -144,26 +144,13 @@ class MkdocsWithConfluence(BasePlugin):
                         print("WARN: No images found in markdown. Proceed..")
 
                 new_markdown = re.sub(
-                    r'<img src="file:///tmp/', '<p><ac:image ac:height="250"><ri:attachment ri:filename="', markdown
+                    r'<img src="file:///tmp/', '<p><ac:image ac:height="350"><ri:attachment ri:filename="', markdown
                 )
                 new_markdown = re.sub(r'" style="page-break-inside: avoid;">', '"/></ac:image></p>', new_markdown)
                 confluence_body = self.confluence_mistune(new_markdown)
-                confluence_body = re.sub(
-                    r"RFSW_FEATURE-(\d+)",
-                    '<ac:structured-macro ac:name="jira" ac:schema-version="1" '
-                    + 'ac:macro-id="095a3154-8f6f-47e9-9385-a24b26e849b1"><ac:parameter '
-                    + 'ac:name="server">JIRADC ONE(EE Jira 7.6)</ac:parameter><ac:parameter '
-                    + 'ac:name="columns">key,summary,type,created,updated,due,assignee,'
-                    + "reporter,priority,status,resolution</ac:parameter><ac:parameter "
-                    + 'ac:name="serverId">ab49870f-b66d-38ea-800d-1f3d4b744bbd</ac:parameter>'
-                    + '<ac:parameter ac:name="key">RFSW_FEATURE-\1',
-                    confluence_body,
-                )
-                confluence_body = re.sub(
-                    r"RFSW_-(\d+)", "RFSW_FEATURE-\1</ac:parameter></ac:structured-macro></p>", confluence_body
-                )
                 f.write(confluence_body)
-                print(confluence_body)
+                if self.config["debug"]:
+                    print(confluence_body)
                 page_name = page.title
                 new_name = "confluence_page_" + page_name.replace(" ", "_") + ".html"
                 shutil.copy(f.name, new_name)
@@ -205,9 +192,9 @@ class MkdocsWithConfluence(BasePlugin):
                     # if self.config['debug']:
                     print(f"PAGE: {page.title}, PARENT0: {parent}, PARENT1: {parent1}, MAIN PARENT: {main_parent}")
                     parent_id = self.find_page_id(parent)
-                    self.wait_until(parent_id, 1, 10)
+                    self.wait_until(parent_id, 1, 20)
                     second_parent_id = self.find_page_id(parent1)
-                    self.wait_until(second_parent_id, 1, 10)
+                    self.wait_until(second_parent_id, 1, 20)
                     main_parent_id = self.find_page_id(main_parent)
                     if not parent_id:
                         if not second_parent_id:
@@ -217,7 +204,7 @@ class MkdocsWithConfluence(BasePlugin):
                                 return markdown
 
                             # if self.config['debug']:
-                            print(f"ADD page '{parent1}' to main parent({main_parent}) ID: {main_parent_id}")
+                            print(f"Trying to ADD page '{parent1}' to main parent({main_parent}) ID: {main_parent_id}")
                             body = TEMPLATE_BODY.replace("TEMPLATE", parent1)
                             self.add_page(parent1, main_parent_id, body)
                             for i in MkdocsWithConfluence.tab_nav:
@@ -227,7 +214,7 @@ class MkdocsWithConfluence(BasePlugin):
                             time.sleep(1)
 
                         # if self.config['debug']:
-                        print(f"ADD page '{parent}' to parent1({parent1}) ID: {second_parent_id}")
+                        print(f"Trying to ADD page '{parent}' to parent1({parent1}) ID: {second_parent_id}")
                         body = TEMPLATE_BODY.replace("TEMPLATE", parent)
                         self.add_page(parent, second_parent_id, body)
                         for i in MkdocsWithConfluence.tab_nav:
@@ -237,7 +224,7 @@ class MkdocsWithConfluence(BasePlugin):
                         time.sleep(1)
 
                     # if self.config['debug']:
-                    print(f"ADD page '{page.title}' to parent0({parent}) ID: {parent_id}")
+                    print(f"Trying to ADD page '{page.title}' to parent0({parent}) ID: {parent_id}")
                     self.add_page(page.title, parent_id, confluence_body)
                     for i in MkdocsWithConfluence.tab_nav:
                         if page.title in i:
@@ -350,8 +337,8 @@ class MkdocsWithConfluence(BasePlugin):
 
     def update_page(self, page_name, page_content_in_storage_format):
         page_id = self.find_page_id(page_name)
-        # if self.config['verbose']:
-        #    print(f"INFO    -   * Mkdocs With Confluence: {page_name} - *UPDATE*")
+        if self.config["verbose"]:
+            print(f"INFO    -   * Mkdocs With Confluence: {page_name} - *UPDATE*")
         if self.config["debug"]:
             print(f" * Mkdocs With Confluence: Update PAGE ID: {page_id}, PAGE NAME: {page_name}")
         if page_id:
@@ -362,11 +349,12 @@ class MkdocsWithConfluence(BasePlugin):
                 print(f"URL: {url}")
             headers = {"Content-Type": "application/json"}
             auth = (self.user, self.pw)
+            space = self.config["space"]
             data = {
                 "id": page_id,
                 "title": page_name,
                 "type": "page",
-                "space": {"key": "RFSW"},
+                "space": {"key": space},
                 "body": {"storage": {"value": page_content_in_storage_format, "representation": "storage"}},
                 "version": {"number": page_version},
             }
@@ -415,8 +403,8 @@ class MkdocsWithConfluence(BasePlugin):
         response_json = r.json()
         if response_json:
             if self.config["debug"]:
-                print(f"PARENT NAME: {response_json['ancestors'][0]['title']}")
-            return response_json["ancestors"][0]["title"]
+                print(f"PARENT NAME: {response_json['ancestors'][-1]['title']}")
+            return response_json["ancestors"][-1]["title"]
         else:
             if self.config["debug"]:
                 print("PAGE DOES NOT HAVE PARENT")
