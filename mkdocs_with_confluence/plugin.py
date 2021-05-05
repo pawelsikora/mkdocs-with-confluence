@@ -107,27 +107,49 @@ class MkdocsWithConfluence(BasePlugin):
                     print("-", end="", flush=True)
                 print(f"] ({MkdocsWithConfluence._id} / {self.flen})", end="\r", flush=True)
 
-            if self.config["debug"]:
+            if self.config["verbose"]:
                 print(f"\nHandling Page '{page.title}' (And Parent Nav Pages if necessary):\n")
             if not all(self.config_scheme):
                 print("ERR: YOU HAVE EMPTY VALUES IN YOUR CONFIG. ABORTING")
                 return markdown
-            try:
 
-                parent = self.__get_section_title(page.ancestors[0].__repr__())
+            try:
+                if self.config["verbose"]:
+                    print("Get section first parent title...: ")
+                try:
+                    parent = self.__get_section_title(page.ancestors[0].__repr__())
+                except IndexError as e:
+                    print(
+                        f'ERR({e}): No second parent! Assuming self.config["parent_page_name"]'
+                        f"{self.config['parent_page_name']}..."
+                    )
+                    parent = None
+                if self.config["verbose"]:
+                    print(f"{parent}")
+                if not parent:
+                    parent = self.config["parent_page_name"]
 
                 if self.config["parent_page_name"] is not None:
                     main_parent = self.config["parent_page_name"]
                 else:
                     main_parent = self.config["space"]
 
-                parent1 = self.__get_section_title(page.ancestors[1].__repr__())
+                if self.config["verbose"]:
+                    print("Get section second parent title...: ")
+                try:
+                    parent1 = self.__get_section_title(page.ancestors[1].__repr__())
+                except IndexError as e:
+                    print(f"ERR({e}) No second parent! Assuming second parent is main parent: {main_parent}...")
+                    parent1 = None
+                if self.config["verbose"]:
+                    print(f"{parent}")
+
                 if not parent1:
                     parent1 = main_parent
-                    if self.config["debug"]:
+                    if self.config["verbose"]:
                         print(f"ONLY ONE PARENT FOUND. ASSUMING AS A FIRST NODE after main parent config {main_parent}")
 
-                if self.config["debug"]:
+                if self.config["verbose"]:
                     print(f"PARENT0: {parent}, PARENT1: {parent1}, MAIN PARENT: {main_parent}")
 
                 tf = tempfile.NamedTemporaryFile(delete=False)
@@ -139,9 +161,9 @@ class MkdocsWithConfluence(BasePlugin):
                         if self.config["debug"]:
                             print(f"FOUND IMAGE: {match.group(1)}")
                         files.append(match.group(1))
-                except AttributeError:
+                except AttributeError as e:
                     if self.config["debug"]:
-                        print("WARN: No images found in markdown. Proceed..")
+                        print(f"WARN(({e}): No images found in markdown. Proceed..")
 
                 new_markdown = re.sub(
                     r'<img src="file:///tmp/', '<p><ac:image ac:height="350"><ri:attachment ri:filename="', markdown
@@ -239,7 +261,8 @@ class MkdocsWithConfluence(BasePlugin):
                     for f in files:
                         self.add_attachment(page.title, f)
 
-            except IndexError:
+            except IndexError as e:
+                print(f"ERR({e}): Exception error!")
                 return markdown
 
         return markdown
