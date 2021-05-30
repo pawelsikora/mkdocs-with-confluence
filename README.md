@@ -23,7 +23,7 @@ plugins:
   - mkdocs-with-confluence
 ```
 
-More information about plugins in the [MkDocs documentation][mkdocs-plugins].
+More information about plugins in the [MkDocs documentation: mkdocs-plugins](https://www.mkdocs.org/user-guide/plugins/).
 
 ## Usage
 
