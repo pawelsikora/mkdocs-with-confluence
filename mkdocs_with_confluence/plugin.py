@@ -9,6 +9,7 @@ import mistune
 from mkdocs.config import config_options
 from mkdocs.plugins import BasePlugin
 from md2cf.confluence_renderer import ConfluenceRenderer
+from os import environ
 
 TEMPLATE_BODY = "<p> TEMPLATE </p>"
 
@@ -19,8 +20,8 @@ class MkdocsWithConfluence(BasePlugin):
         ("host_url", config_options.Type(str, default=None)),
         ("space", config_options.Type(str, default=None)),
         ("parent_page_name", config_options.Type(str, default=None)),
-        ("username", config_options.Type(str, default=None)),
-        ("password", config_options.Type(str, default=None)),
+        ("username", config_options.Type(str, default=environ.get('JIRA_USERNAME',None))),
+        ("password", config_options.Type(str, default=environ.get('JIRA_PASSWORD',None))),
         ("enabled_if_env", config_options.Type(str, default=None)),
         ("verbose", config_options.Type(bool, default=False)),
         ("debug", config_options.Type(bool, default=False)),
