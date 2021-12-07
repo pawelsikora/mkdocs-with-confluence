@@ -6,6 +6,7 @@ import shutil
 import requests
 import mimetypes
 import mistune
+from time import sleep
 from mkdocs.config import config_options
 from mkdocs.plugins import BasePlugin
 from md2cf.confluence_renderer import ConfluenceRenderer
@@ -38,12 +39,26 @@ class MkdocsWithConfluence(BasePlugin):
     def on_nav(self, nav, config, files):
         MkdocsWithConfluence.tab_nav = []
         navigation_items = nav.__repr__()
+
         for n in navigation_items.split("\n"):
-            # print(f"* {n}")
             leading_spaces = len(n) - len(n.lstrip(" "))
             spaces = leading_spaces * " "
             if "Page" in n:
-                p = spaces + self.__get_page_title(n)
+                try:
+                    self.page_title = self.__get_page_title(n)
+                    if self.page_title is None:
+                        raise AttributeError
+                except AttributeError:
+                    self.page_local_path = self.__get_page_url(n)
+                    print(
+                        f"WARN    - Page from path {self.page_local_path} has no"
+                        f"          entity in the mkdocs.yml nav section. It will be uploaded"
+                        f"          to the Confluence, but you may not see it on the web server!"
+                    )
+                    self.page_local_name = self.__get_page_name(n)
+                    self.page_title = self.page_local_name
+
+                p = spaces + self.page_title
                 MkdocsWithConfluence.tab_nav.append(p)
             if "Section" in n:
                 s = spaces + self.__get_section_title(n)
@@ -51,8 +66,11 @@ class MkdocsWithConfluence(BasePlugin):
 
     def on_files(self, files, config):
         pages = files.documentation_pages()
-        self.flen = len(pages)
-        print(f"Number of Files: {self.flen}")
+        try:
+            self.flen = len(pages)
+            print(f"Number of Files in directory tree: {self.flen}")
+        except 0:
+            print("ERR: You have no documentation pages" "in the directory tree, please add at least one!")
 
     def on_post_template(self, output_content, template_name, config):
         if self.config["verbose"] is False and self.config["debug"] is False:
@@ -247,8 +265,24 @@ class MkdocsWithConfluence(BasePlugin):
                         time.sleep(1)
 
                     # if self.config['debug']:
-                    print(f"Trying to ADD page '{page.title}' to parent0({parent}) ID: {parent_id}")
+
+                    if parent_id is None:
+                        for i in range(11):
+                            while parent_id is None:
+                                try:
+                                    self.add_page(page.title, parent_id, confluence_body)
+                                except requests.exceptions.HTTPError:
+                                    print(
+                                        f"ERR    - HTTP error on adding page. It probably occured due to "
+                                        f"parent ID('{parent_id}') page is not YET synced on server. Retry nb {i}/10..."
+                                    )
+                                    sleep(5)
+                                    parent_id = self.find_page_id(parent)
+                                break
+
                     self.add_page(page.title, parent_id, confluence_body)
+
+                    print(f"Trying to ADD page '{page.title}' to parent0({parent}) ID: {parent_id}")
                     for i in MkdocsWithConfluence.tab_nav:
                         if page.title in i:
                             n_kol = len(i + "INFO    - Mkdocs With Confluence:" + " *NEW PAGE*")
@@ -271,11 +305,22 @@ class MkdocsWithConfluence(BasePlugin):
     def on_page_content(self, html, page, config, files):
         return html
 
+    def __get_page_url(self, section):
+        return re.search("url='(.*)'\\)", section).group(1)[:-1] + ".md"
+
+    def __get_page_name(self, section):
+        return os.path.basename(re.search("url='(.*)'\\)", section).group(1)[:-1])
+
     def __get_section_title(self, section):
         return re.search("Section\\(title='(.*)'\\)", section).group(1)
 
     def __get_page_title(self, section):
-        return re.search("\\s*Page\\(title='(.*)',", section).group(1)
+        r = re.search("\\s*Page\\(title='(.*)',", section)
+        try:
+            return r.group(1)
+        except AttributeError:
+            name = self.__get_page_url(section)
+            print(f"ERR    - Page '{name}' doesn't exist in the mkdocs.yml nav section!")
 
     def add_attachment(self, page_name, filepath):
         if self.config["verbose"]:
