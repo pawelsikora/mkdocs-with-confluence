@@ -211,16 +211,19 @@ class MkdocsWithConfluence(BasePlugin):
                 tf = tempfile.NamedTemporaryFile(delete=False)
                 f = open(tf.name, "w")
 
-                files = []
+                attachments = []
                 try:
                     for match in re.finditer(r'img src="file://(.*)" s', markdown):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
-                        files.append(match.group(1))
+                        attachments.append(match.group(1))
+                    for match in re.finditer(r'!\[\w*\]\((.*)\)', markdown):
+                        if self.config["debug"]:
+                            print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
+                        attachments.append("docs/" + match.group(1))
                 except AttributeError as e:
                     if self.config["debug"]:
                         print(f"DEBUG    - WARN(({e}): No images found in markdown. Proceed..")
-
                 new_markdown = re.sub(
                     r'<img src="file:///tmp/', '<p><ac:image ac:height="350"><ri:attachment ri:filename="', markdown
                 )
@@ -334,13 +337,13 @@ class MkdocsWithConfluence(BasePlugin):
                             n_kol = len(i + "INFO    - Mkdocs With Confluence:" + " *NEW PAGE*")
                             print(f"INFO    - Mkdocs With Confluence: {i} *NEW PAGE*")
 
-                if files:
+                if attachments:
                     if self.config["debug"]:
-                        print(f"\nDEBUG    - UPLOADING ATTACHMENTS TO CONFLUENCE, DETAILS:\n" f"FILES: {files}\n")
+                        print(f"\nDEBUG    - UPLOADING ATTACHMENTS TO CONFLUENCE, DETAILS:\n" f"FILES: {attachments}\n")
 
-                    n_kol = len("  *NEW ATTACHMENTS({len(files)})*")
-                    print(f"\033[A\033[F\033[{n_kol}G  *NEW ATTACHMENTS({len(files)})*")
-                    for f in files:
+                    n_kol = len("  *NEW ATTACHMENTS({len(attachments)})*")
+                    print(f"\033[A\033[F\033[{n_kol}G  *NEW ATTACHMENTS({len(attachments)})*")
+                    for f in attachments:
                         self.add_attachment(page.title, f)
 
             except IndexError as e:
@@ -401,10 +404,11 @@ class MkdocsWithConfluence(BasePlugin):
             content_type, encoding = mimetypes.guess_type(filename)
             if content_type is None:
                 content_type = "multipart/form-data"
-            files = {"file": (filename, open(filename, "rb"), content_type)}
+            files = {"file": (filename, open(filename, "rb"), content_type), "comment": "File uploaded from MkdocsWithConfluence"}
 
             if not self.dryrun:
                 r = requests.post(url, headers=headers, files=files, auth=auth)
+                print(r.json())
                 r.raise_for_status()
                 if r.status_code == 200:
                     print("OK!")
