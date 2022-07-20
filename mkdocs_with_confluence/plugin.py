@@ -410,7 +410,7 @@ class MkdocsWithConfluence(BasePlugin):
                 existing_match = file_hash_regex.search(attachement["version"]["message"])
                 if existing_match is not None and existing_match.group(1) == file_hash:
                     if self.config["debug"]:
-                        print(f" * Mkdocs With Confluence * {page_name} *Existing attachment skipping * {filepath}")
+                        print(f" * Mkdocs With Confluence * {page_name} * Existing attachment skipping * {filepath}")
                 else:
                     self.update_attachment(page_id, filepath, attachement, attachement_message)
             else:
