@@ -218,7 +218,7 @@ class MkdocsWithConfluence(BasePlugin):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
                         attachments.append(match.group(1))
-                    for match in re.finditer(r'!\[\w*\]\((.*)\)', markdown):
+                    for match in re.finditer(r"!\[\w*\]\((.*)\)", markdown):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
                         attachments.append("docs/" + match.group(1))
