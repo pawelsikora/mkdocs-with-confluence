@@ -218,7 +218,7 @@ class MkdocsWithConfluence(BasePlugin):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
                         attachments.append(match.group(1))
-                    for match in re.finditer(r"!\[\w*\]\((.*)\)", markdown):
+                    for match in re.finditer(r"!\[[\w\. ]*\]\((?!http|file)(.*)\))", markdown):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
                         attachments.append("docs/" + match.group(1))
@@ -403,18 +403,18 @@ class MkdocsWithConfluence(BasePlugin):
         page_id = self.find_page_id(page_name)
         if page_id:
             file_hash = self.get_file_sha1(filepath)
-            attachement_message = f"MKDocsWithConfluence [v{file_hash}]"
-            attachement = self.get_attachment(page_id, filepath)
-            if attachement:
+            attachment_message = f"MKDocsWithConfluence [v{file_hash}]"
+            existing_attachment = self.get_attachment(page_id, filepath)
+            if existing_attachment:
                 file_hash_regex = re.compile(r"\[v([a-f0-9]{40})]$")
-                existing_match = file_hash_regex.search(attachement["version"]["message"])
+                existing_match = file_hash_regex.search(existing_attachment["version"]["message"])
                 if existing_match is not None and existing_match.group(1) == file_hash:
                     if self.config["debug"]:
                         print(f" * Mkdocs With Confluence * {page_name} * Existing attachment skipping * {filepath}")
                 else:
-                    self.update_attachment(page_id, filepath, attachement, attachement_message)
+                    self.update_attachment(page_id, filepath, existing_attachment, attachment_message)
             else:
-                self.create_attachment(page_id, filepath, attachement_message)
+                self.create_attachment(page_id, filepath, attachment_message)
         else:
             if self.config["debug"]:
                 print("PAGE DOES NOT EXISTS")
