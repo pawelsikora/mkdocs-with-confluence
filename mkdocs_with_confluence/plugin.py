@@ -1,5 +1,6 @@
 import time
 import os
+import hashlib
 import sys
 import re
 import tempfile
@@ -211,16 +212,19 @@ class MkdocsWithConfluence(BasePlugin):
                 tf = tempfile.NamedTemporaryFile(delete=False)
                 f = open(tf.name, "w")
 
-                files = []
+                attachments = []
                 try:
                     for match in re.finditer(r'img src="file://(.*)" s', markdown):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
-                        files.append(match.group(1))
+                        attachments.append(match.group(1))
+                    for match in re.finditer(r"!\[[\w\. -]*\]\((?!http|file)(.*)\)", markdown):
+                        if self.config["debug"]:
+                            print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
+                        attachments.append("docs/" + match.group(1))
                 except AttributeError as e:
                     if self.config["debug"]:
                         print(f"DEBUG    - WARN(({e}): No images found in markdown. Proceed..")
-
                 new_markdown = re.sub(
                     r'<img src="file:///tmp/', '<p><ac:image ac:height="350"><ri:attachment ri:filename="', markdown
                 )
@@ -334,14 +338,14 @@ class MkdocsWithConfluence(BasePlugin):
                             n_kol = len(i + "INFO    - Mkdocs With Confluence:" + " *NEW PAGE*")
                             print(f"INFO    - Mkdocs With Confluence: {i} *NEW PAGE*")
 
-                if files:
+                if attachments:
                     if self.config["debug"]:
-                        print(f"\nDEBUG    - UPLOADING ATTACHMENTS TO CONFLUENCE, DETAILS:\n" f"FILES: {files}\n")
+                        print(f"\nDEBUG    - UPLOADING ATTACHMENTS TO CONFLUENCE, DETAILS:\n" f"FILES: {attachments}\n")
 
-                    n_kol = len("  *NEW ATTACHMENTS({len(files)})*")
-                    print(f"\033[A\033[F\033[{n_kol}G  *NEW ATTACHMENTS({len(files)})*")
-                    for f in files:
-                        self.add_attachment(page.title, f)
+                    n_kol = len("  *NEW ATTACHMENTS({len(attachments)})*")
+                    print(f"\033[A\033[F\033[{n_kol}G  *NEW ATTACHMENTS({len(attachments)})*")
+                    for f in attachments:
+                        self.add_or_update_attachment(page.title, f)
 
             except IndexError as e:
                 if self.config["debug"]:
@@ -384,35 +388,106 @@ class MkdocsWithConfluence(BasePlugin):
             print(f"WRN    - Page '{name}' doesn't exist in the mkdocs.yml nav section!")
             return name
 
-    def add_attachment(self, page_name, filepath):
-        print(f"INFO    - Mkdocs With Confluence * {page_name} *NEW ATTACHMENT* {filepath}")
+    # Adapted from https://stackoverflow.com/a/3431838
+    def get_file_sha1(self, file_path):
+        hash_sha1 = hashlib.sha1()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha1.update(chunk)
+        return hash_sha1.hexdigest()
+
+    def add_or_update_attachment(self, page_name, filepath):
+        print(f"INFO    - Mkdocs With Confluence * {page_name} *ADD/Update ATTACHMENT if required* {filepath}")
         if self.config["debug"]:
             print(f" * Mkdocs With Confluence: Add Attachment: PAGE NAME: {page_name}, FILE: {filepath}")
         page_id = self.find_page_id(page_name)
         if page_id:
-            url = self.config["host_url"] + "/" + page_id + "/child/attachment/"
-            headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
-            if self.config["debug"]:
-                print(f"URL: {url}")
-            filename = filepath
-            auth = (self.user, self.pw)
-
-            # determine content-type
-            content_type, encoding = mimetypes.guess_type(filename)
-            if content_type is None:
-                content_type = "multipart/form-data"
-            files = {"file": (filename, open(filename, "rb"), content_type)}
-
-            if not self.dryrun:
-                r = requests.post(url, headers=headers, files=files, auth=auth)
-                r.raise_for_status()
-                if r.status_code == 200:
-                    print("OK!")
+            file_hash = self.get_file_sha1(filepath)
+            attachment_message = f"MKDocsWithConfluence [v{file_hash}]"
+            existing_attachment = self.get_attachment(page_id, filepath)
+            if existing_attachment:
+                file_hash_regex = re.compile(r"\[v([a-f0-9]{40})]$")
+                existing_match = file_hash_regex.search(existing_attachment["version"]["message"])
+                if existing_match is not None and existing_match.group(1) == file_hash:
+                    if self.config["debug"]:
+                        print(f" * Mkdocs With Confluence * {page_name} * Existing attachment skipping * {filepath}")
                 else:
-                    print("ERR!")
+                    self.update_attachment(page_id, filepath, existing_attachment, attachment_message)
+            else:
+                self.create_attachment(page_id, filepath, attachment_message)
         else:
             if self.config["debug"]:
                 print("PAGE DOES NOT EXISTS")
+
+    def get_attachment(self, page_id, filepath):
+        name = os.path.basename(filepath)
+        if self.config["debug"]:
+            print(f" * Mkdocs With Confluence: Get Attachment: PAGE ID: {page_id}, FILE: {filepath}")
+
+        url = self.config["host_url"] + "/" + page_id + "/child/attachment"
+        headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+        if self.config["debug"]:
+            print(f"URL: {url}")
+        auth = (self.user, self.pw)
+
+        r = requests.get(url, headers=headers, params={"filename": name, "expand": "version"}, auth=auth)
+        r.raise_for_status()
+        with nostdout():
+            response_json = r.json()
+        if response_json["size"]:
+            return response_json["results"][0]
+
+    def update_attachment(self, page_id, filepath, existing_attachment, message):
+        if self.config["debug"]:
+            print(f" * Mkdocs With Confluence: Update Attachment: PAGE ID: {page_id}, FILE: {filepath}")
+
+        url = self.config["host_url"] + "/" + page_id + "/child/attachment/" + existing_attachment["id"] + "/data"
+        headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+        if self.config["debug"]:
+            print(f"URL: {url}")
+        filename = filepath
+        auth = (self.user, self.pw)
+
+        # determine content-type
+        content_type, encoding = mimetypes.guess_type(filename)
+        if content_type is None:
+            content_type = "multipart/form-data"
+        files = {"file": (filename, open(filename, "rb"), content_type), "comment": message}
+
+        if not self.dryrun:
+            r = requests.post(url, headers=headers, files=files, auth=auth)
+            r.raise_for_status()
+            print(r.json())
+            if r.status_code == 200:
+                print("OK!")
+            else:
+                print("ERR!")
+
+    def create_attachment(self, page_id, filepath, message):
+        if self.config["debug"]:
+            print(f" * Mkdocs With Confluence: Create Attachment: PAGE ID: {page_id}, FILE: {filepath}")
+
+        url = self.config["host_url"] + "/" + page_id + "/child/attachment"
+        headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+        if self.config["debug"]:
+            print(f"URL: {url}")
+        filename = filepath
+        auth = (self.user, self.pw)
+
+        # determine content-type
+        content_type, encoding = mimetypes.guess_type(filename)
+        if content_type is None:
+            content_type = "multipart/form-data"
+        files = {"file": (filename, open(filename, "rb"), content_type), "comment": message}
+
+        if not self.dryrun:
+            r = requests.post(url, headers=headers, files=files, auth=auth)
+            print(r.json())
+            r.raise_for_status()
+            if r.status_code == 200:
+                print("OK!")
+            else:
+                print("ERR!")
 
     def find_page_id(self, page_name):
         if self.config["debug"]:
