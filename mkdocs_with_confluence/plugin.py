@@ -14,6 +14,7 @@ from mkdocs.config import config_options
 from mkdocs.plugins import BasePlugin
 from md2cf.confluence_renderer import ConfluenceRenderer
 from os import environ
+from pathlib import Path
 
 TEMPLATE_BODY = "<p> TEMPLATE </p>"
 
@@ -52,6 +53,7 @@ class MkdocsWithConfluence(BasePlugin):
         self.simple_log = False
         self.flen = 1
         self.session = requests.Session()
+        self.page_attachments = {}
 
     def on_nav(self, nav, config, files):
         MkdocsWithConfluence.tab_nav = []
@@ -218,10 +220,14 @@ class MkdocsWithConfluence(BasePlugin):
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
                         attachments.append(match.group(1))
-                    for match in re.finditer(r"!\[[\w\. -]*\]\((?!http|file)(.*)\)", markdown):
+                    for match in re.finditer(r"!\[[\w\. -]*\]\((?!http|file)([^\s,]*).*\)", markdown):
+                        file_path = match.group(1).lstrip("./\\")
+                        attachments.append(file_path)
+
                         if self.config["debug"]:
-                            print(f"DEBUG    - FOUND IMAGE: {match.group(1)}")
-                        attachments.append("docs/" + match.group(1).replace("../", ""))
+                            print(f"DEBUG    - FOUND IMAGE: {file_path}")
+                        attachments.append("docs/" + file_path.replace("../", ""))
+
                 except AttributeError as e:
                     if self.config["debug"]:
                         print(f"DEBUG    - WARN(({e}): No images found in markdown. Proceed..")
@@ -268,7 +274,6 @@ class MkdocsWithConfluence(BasePlugin):
                     self.update_page(page.title, confluence_body)
                     for i in MkdocsWithConfluence.tab_nav:
                         if page.title in i:
-                            n_kol = len(i + " *NEW PAGE*")
                             print(f"INFO    - Mkdocs With Confluence: {i} *UPDATE*")
                 else:
                     if self.config["debug"]:
@@ -297,7 +302,6 @@ class MkdocsWithConfluence(BasePlugin):
                             self.add_page(parent1, main_parent_id, body)
                             for i in MkdocsWithConfluence.tab_nav:
                                 if parent1 in i:
-                                    n_kol = len(i + "INFO    - Mkdocs With Confluence:" + " *NEW PAGE*")
                                     print(f"INFO    - Mkdocs With Confluence: {i} *NEW PAGE*")
                             time.sleep(1)
 
@@ -310,11 +314,8 @@ class MkdocsWithConfluence(BasePlugin):
                         self.add_page(parent, second_parent_id, body)
                         for i in MkdocsWithConfluence.tab_nav:
                             if parent in i:
-                                n_kol = len(i + "INFO    - Mkdocs With Confluence:" + " *NEW PAGE*")
                                 print(f"INFO    - Mkdocs With Confluence: {i} *NEW PAGE*")
                         time.sleep(1)
-
-                    # if self.config['debug']:
 
                     if parent_id is None:
                         for i in range(11):
@@ -335,17 +336,10 @@ class MkdocsWithConfluence(BasePlugin):
                     print(f"Trying to ADD page '{page.title}' to parent0({parent}) ID: {parent_id}")
                     for i in MkdocsWithConfluence.tab_nav:
                         if page.title in i:
-                            n_kol = len(i + "INFO    - Mkdocs With Confluence:" + " *NEW PAGE*")
                             print(f"INFO    - Mkdocs With Confluence: {i} *NEW PAGE*")
 
                 if attachments:
-                    if self.config["debug"]:
-                        print(f"\nDEBUG    - UPLOADING ATTACHMENTS TO CONFLUENCE, DETAILS:\n" f"FILES: {attachments}\n")
-
-                    n_kol = len("  *NEW ATTACHMENTS({len(attachments)})*")
-                    print(f"\033[A\033[F\033[{n_kol}G  *NEW ATTACHMENTS({len(attachments)})*")
-                    for f in attachments:
-                        self.add_or_update_attachment(page.title, f)
+                    self.page_attachments[page.title] = attachments
 
             except IndexError as e:
                 if self.config["debug"]:
@@ -353,6 +347,20 @@ class MkdocsWithConfluence(BasePlugin):
                 return markdown
 
         return markdown
+
+    def on_post_page(self, output, page, config):
+        site_dir = config.get("site_dir")
+        attachments = self.page_attachments.get(page.title, [])
+
+        if self.config["debug"]:
+            print(f"\nDEBUG    - UPLOADING ATTACHMENTS TO CONFLUENCE FOR {page.title}, DETAILS:")
+            print(f"FILES: {attachments}  \n")
+        for attachment in attachments:
+            if self.config["debug"]:
+                print(f"DEBUG    - looking for {attachment} in {site_dir}")
+            for p in Path(site_dir).rglob(f"*{attachment}"):
+                self.add_or_update_attachment(page.title, p)
+        return output
 
     def on_page_content(self, html, page, config, files):
         return html
@@ -442,15 +450,17 @@ class MkdocsWithConfluence(BasePlugin):
 
         url = self.config["host_url"] + "/" + page_id + "/child/attachment/" + existing_attachment["id"] + "/data"
         headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+
         if self.config["debug"]:
             print(f"URL: {url}")
-        filename = filepath
+
+        filename = os.path.basename(filepath)
 
         # determine content-type
-        content_type, encoding = mimetypes.guess_type(filename)
+        content_type, encoding = mimetypes.guess_type(filepath)
         if content_type is None:
             content_type = "multipart/form-data"
-        files = {"file": (filename, open(filename, "rb"), content_type), "comment": message}
+        files = {"file": (filename, open(Path(filepath), "rb"), content_type), "comment": message}
 
         if not self.dryrun:
             r = self.session.post(url, headers=headers, files=files)
@@ -467,16 +477,17 @@ class MkdocsWithConfluence(BasePlugin):
 
         url = self.config["host_url"] + "/" + page_id + "/child/attachment"
         headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+
         if self.config["debug"]:
             print(f"URL: {url}")
-        filename = filepath
+
+        filename = os.path.basename(filepath)
 
         # determine content-type
-        content_type, encoding = mimetypes.guess_type(filename)
+        content_type, encoding = mimetypes.guess_type(filepath)
         if content_type is None:
             content_type = "multipart/form-data"
-        files = {"file": (filename, open(filename, "rb"), content_type), "comment": message}
-
+        files = {"file": (filename, open(filepath, "rb"), content_type), "comment": message}
         if not self.dryrun:
             r = self.session.post(url, headers=headers, files=files)
             print(r.json())
