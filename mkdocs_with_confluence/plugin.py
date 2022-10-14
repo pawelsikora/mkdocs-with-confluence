@@ -52,6 +52,7 @@ class MkdocsWithConfluence(BasePlugin):
         self.confluence_mistune = mistune.Markdown(renderer=self.confluence_renderer)
         self.simple_log = False
         self.flen = 1
+        self.session = requests.Session()
         self.page_attachments = {}
 
     def on_nav(self, nav, config, files):
@@ -145,8 +146,7 @@ class MkdocsWithConfluence(BasePlugin):
 
     def on_page_markdown(self, markdown, page, config, files):
         MkdocsWithConfluence._id += 1
-        self.pw = self.config["password"]
-        self.user = self.config["username"]
+        self.session.auth = (self.config["username"], self.config["password"])
 
         if self.enabled:
             if self.simple_log is True:
@@ -226,6 +226,7 @@ class MkdocsWithConfluence(BasePlugin):
 
                         if self.config["debug"]:
                             print(f"DEBUG    - FOUND IMAGE: {file_path}")
+                        attachments.append("docs/" + file_path.replace("../", ""))
 
                 except AttributeError as e:
                     if self.config["debug"]:
@@ -435,9 +436,8 @@ class MkdocsWithConfluence(BasePlugin):
         headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
         if self.config["debug"]:
             print(f"URL: {url}")
-        auth = (self.user, self.pw)
 
-        r = requests.get(url, headers=headers, params={"filename": name, "expand": "version"}, auth=auth)
+        r = self.session.get(url, headers=headers, params={"filename": name, "expand": "version"})
         r.raise_for_status()
         with nostdout():
             response_json = r.json()
@@ -450,8 +450,10 @@ class MkdocsWithConfluence(BasePlugin):
 
         url = self.config["host_url"] + "/" + page_id + "/child/attachment/" + existing_attachment["id"] + "/data"
         headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+
         if self.config["debug"]:
             print(f"URL: {url}")
+
         filename = os.path.basename(filepath)
         auth = (self.user, self.pw)
 
@@ -462,7 +464,7 @@ class MkdocsWithConfluence(BasePlugin):
         files = {"file": (filename, open(Path(filepath), "rb"), content_type), "comment": message}
 
         if not self.dryrun:
-            r = requests.post(url, headers=headers, files=files, auth=auth)
+            r = self.session.post(url, headers=headers, files=files)
             r.raise_for_status()
             print(r.json())
             if r.status_code == 200:
@@ -476,8 +478,10 @@ class MkdocsWithConfluence(BasePlugin):
 
         url = self.config["host_url"] + "/" + page_id + "/child/attachment"
         headers = {"X-Atlassian-Token": "no-check"}  # no content-type here!
+
         if self.config["debug"]:
             print(f"URL: {url}")
+
         filename = os.path.basename(filepath)
         auth = (self.user, self.pw)
 
@@ -487,7 +491,7 @@ class MkdocsWithConfluence(BasePlugin):
             content_type = "multipart/form-data"
         files = {"file": (filename, open(filepath, "rb"), content_type), "comment": message}
         if not self.dryrun:
-            r = requests.post(url, headers=headers, files=files, auth=auth)
+            r = self.session.post(url, headers=headers, files=files)
             print(r.json())
             r.raise_for_status()
             if r.status_code == 200:
@@ -502,8 +506,7 @@ class MkdocsWithConfluence(BasePlugin):
         url = self.config["host_url"] + "?title=" + name_confl + "&spaceKey=" + self.config["space"] + "&expand=history"
         if self.config["debug"]:
             print(f"URL: {url}")
-        auth = (self.user, self.pw)
-        r = requests.get(url, auth=auth)
+        r = self.session.get(url)
         r.raise_for_status()
         with nostdout():
             response_json = r.json()
@@ -525,7 +528,6 @@ class MkdocsWithConfluence(BasePlugin):
         if self.config["debug"]:
             print(f"URL: {url}")
         headers = {"Content-Type": "application/json"}
-        auth = (self.user, self.pw)
         space = self.config["space"]
         data = {
             "type": "page",
@@ -537,7 +539,7 @@ class MkdocsWithConfluence(BasePlugin):
         if self.config["debug"]:
             print(f"DATA: {data}")
         if not self.dryrun:
-            r = requests.post(url, json=data, headers=headers, auth=auth)
+            r = self.session.post(url, json=data, headers=headers)
             r.raise_for_status()
             if r.status_code == 200:
                 if self.config["debug"]:
@@ -558,7 +560,6 @@ class MkdocsWithConfluence(BasePlugin):
             if self.config["debug"]:
                 print(f"URL: {url}")
             headers = {"Content-Type": "application/json"}
-            auth = (self.user, self.pw)
             space = self.config["space"]
             data = {
                 "id": page_id,
@@ -570,7 +571,7 @@ class MkdocsWithConfluence(BasePlugin):
             }
 
             if not self.dryrun:
-                r = requests.put(url, json=data, headers=headers, auth=auth)
+                r = self.session.put(url, json=data, headers=headers)
                 r.raise_for_status()
                 if r.status_code == 200:
                     if self.config["debug"]:
@@ -587,8 +588,7 @@ class MkdocsWithConfluence(BasePlugin):
             print(f"INFO    -   * Mkdocs With Confluence: Find PAGE VERSION, PAGE NAME: {page_name}")
         name_confl = page_name.replace(" ", "+")
         url = self.config["host_url"] + "?title=" + name_confl + "&spaceKey=" + self.config["space"] + "&expand=version"
-        auth = (self.user, self.pw)
-        r = requests.get(url, auth=auth)
+        r = self.session.get(url)
         r.raise_for_status()
         with nostdout():
             response_json = r.json()
@@ -607,8 +607,7 @@ class MkdocsWithConfluence(BasePlugin):
         idp = self.find_page_id(name)
         url = self.config["host_url"] + "/" + idp + "?expand=ancestors"
 
-        auth = (self.user, self.pw)
-        r = requests.get(url, auth=auth)
+        r = self.session.get(url)
         r.raise_for_status()
         with nostdout():
             response_json = r.json()
