@@ -55,6 +55,7 @@ class MkdocsWithConfluence(BasePlugin):
         self.session = requests.Session()
         self.page_attachments = {}
 
+
     def on_nav(self, nav, config, files):
         MkdocsWithConfluence.tab_nav = []
         navigation_items = nav.__repr__()
@@ -484,6 +485,7 @@ class MkdocsWithConfluence(BasePlugin):
 
         filename = os.path.basename(filepath)
         auth = (self.user, self.pw)
+
 
         # determine content-type
         content_type, encoding = mimetypes.guess_type(filepath)
