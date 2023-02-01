@@ -48,7 +48,7 @@ class MkdocsWithConfluence(BasePlugin):
 
     def __init__(self):
         self.enabled = True
-        self.confluence_renderer = ConfluenceRenderer(use_xhtml=True)
+        self.confluence_renderer = ConfluenceRenderer(use_xhtml=True, remove_text_newlines=True)
         self.confluence_mistune = mistune.Markdown(renderer=self.confluence_renderer)
         self.simple_log = False
         self.flen = 1
