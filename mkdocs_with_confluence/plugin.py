@@ -31,6 +31,33 @@ class DummyFile(object):
     def write(self, x):
         pass
 
+class MkdocsConfluenceRenderer(ConfluenceRenderer):
+    def __init__(self, mkdocs_plugin=None, **kwargs):
+        super().__init__(**kwargs)
+        self.mkdocs_plugin = mkdocs_plugin
+        
+    def link(self, link, title, text):
+        if self.mkdocs_plugin and '://' not in link and link.endswith('.md'):
+            title = self._page_title_by_relative_file_path(link)
+            if title:
+                page_id = self.mkdocs_plugin.find_page_id(title)
+                if page_id:
+                    link = self.mkdocs_plugin.config['host_url'].replace(
+                        '/rest/api/content',
+                        f'/spaces/{self.mkdocs_plugin.config["space"]}/pages/{page_id}'
+                    )
+
+        return super().link(link, title, text)
+
+    def _page_title_by_relative_file_path(self, path):
+        my_path = self.mkdocs_plugin.current_page.file.src_uri
+        their_path = os.path.normpath(os.path.join(os.path.dirname(my_path), path))
+        for page in self.mkdocs_plugin.pages:
+            if page.file.src_uri == their_path:
+                return page.title
+
+        return None
+            
 
 class MkdocsWithConfluence(BasePlugin):
     _id = 0
@@ -48,14 +75,19 @@ class MkdocsWithConfluence(BasePlugin):
 
     def __init__(self):
         self.enabled = True
-        self.confluence_renderer = ConfluenceRenderer(use_xhtml=True, remove_text_newlines=True)
+        self.confluence_renderer = MkdocsConfluenceRenderer(
+            mkdocs_plugin=self, use_xhtml=True, remove_text_newlines=True
+        )
         self.confluence_mistune = mistune.Markdown(renderer=self.confluence_renderer)
         self.simple_log = False
         self.flen = 1
         self.session = requests.Session()
         self.page_attachments = {}
+        self.current_page = None
+        self.pages = None
 
     def on_nav(self, nav, config, files):
+        self.pages = nav.pages
         MkdocsWithConfluence.tab_nav = []
         navigation_items = nav.__repr__()
 
@@ -147,6 +179,7 @@ class MkdocsWithConfluence(BasePlugin):
     def on_page_markdown(self, markdown, page, config, files):
         MkdocsWithConfluence._id += 1
         self.session.auth = (self.config["username"], self.config["password"])
+        self.current_page = page
 
         if self.enabled:
             if self.simple_log is True:
