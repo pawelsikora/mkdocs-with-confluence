@@ -138,11 +138,15 @@ class MkdocsWithConfluence(BasePlugin):
             print("INFO    -  Mkdocs With Confluence: Exporting MKDOCS pages to Confluence turned ON by default!")
             self.enabled = True
 
-        if self.config["dryrun"]:
-            print("WARNING -  Mkdocs With Confluence - DRYRUN MODE turned ON")
-            self.dryrun = True
-        else:
-            self.dryrun = False
+    @property
+    def dryrun(self):
+        if "_dryrun" not in dir(self):
+            if self.config["dryrun"]:
+                print("WARNING -  Mkdocs With Confluence - DRYRUN MODE turned ON")
+                self._dryrun = True
+            else:
+                self._dryrun = False
+        return self._dryrun
 
     def on_page_markdown(self, markdown, page, config, files):
         MkdocsWithConfluence._id += 1
