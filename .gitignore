@@ -4,3 +4,5 @@ mkdocs_with_confluence.egg-info/*
 .venv*
 .coverage
 .test
+.vscode
+__pycache__
