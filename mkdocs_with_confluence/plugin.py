@@ -167,7 +167,6 @@ class MkdocsWithConfluence(BasePlugin):
                 if self.config["debug"]:
                     print("DEBUG    - Get section first parent title...: ")
                 try:
-
                     parent = self.__get_section_title(page.ancestors[0].__repr__())
                 except IndexError as e:
                     if self.config["debug"]:
