@@ -3,6 +3,7 @@ import os
 import hashlib
 import sys
 import re
+import json
 import tempfile
 import shutil
 import requests
@@ -40,6 +41,7 @@ class MkdocsWithConfluence(BasePlugin):
         ("parent_page_name", config_options.Type(str, default=None)),
         ("username", config_options.Type(str, default=environ.get("JIRA_USERNAME", None))),
         ("password", config_options.Type(str, default=environ.get("JIRA_PASSWORD", None))),
+        ("headers", config_options.Type(dict, default=json.loads(environ.get("JIRA_HEADERS", "{}")))),
         ("enabled_if_env", config_options.Type(str, default=None)),
         ("verbose", config_options.Type(bool, default=False)),
         ("debug", config_options.Type(bool, default=False)),
@@ -146,7 +148,11 @@ class MkdocsWithConfluence(BasePlugin):
 
     def on_page_markdown(self, markdown, page, config, files):
         MkdocsWithConfluence._id += 1
-        self.session.auth = (self.config["username"], self.config["password"])
+        if self.config["username"] and self.config["password"]:
+            self.session.auth = (self.config["username"], self.config["password"])
+
+        if self.config["headers"]:
+            self.session.headers = self.config["headers"]
 
         if self.enabled:
             if self.simple_log is True:
