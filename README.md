@@ -1,5 +1,5 @@
 ![PyPI](https://img.shields.io/pypi/v/mkdocs-with-confluence)
-[![Build Status](https://travis-ci.com/pawelsikora/mkdocs-with-confluence.svg?branch=main)](https://travis-ci.com/pawelsikora/mkdocs-with-confluence)
+[![Build Status](https://app.travis-ci.com/pawelsikora/mkdocs-with-confluence.svg?token=Nxwjs6L2kEPqZeJARZzo&branch=main)](https://app.travis-ci.com/pawelsikora/mkdocs-with-confluence)
 [![codecov](https://codecov.io/gh/pawelsikora/mkdocs-with-confluence/branch/master/graph/badge.svg)](https://codecov.io/gh/pawelsikora/mkdocs-with-confluence)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/mkdocs-with-confluence)
 ![GitHub contributors](https://img.shields.io/github/contributors/pawelsikora/mkdocs-with-confluence)
