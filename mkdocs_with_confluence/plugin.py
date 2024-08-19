@@ -17,7 +17,7 @@ from os import environ
 from pathlib import Path
 
 TEMPLATE_BODY = "<p> TEMPLATE </p>"
-
+PARENT_ID_RETRIES = 20
 
 @contextlib.contextmanager
 def nostdout():
@@ -254,6 +254,7 @@ class MkdocsWithConfluence(BasePlugin):
                         f"DEBUG    - BODY: {confluence_body}\n"
                     )
 
+                print(f"INFO - BUILDING PARENT: {parent}")
                 page_id = self.find_page_id(page.title)
                 if page_id is not None:
                     if self.config["debug"]:
@@ -317,20 +318,16 @@ class MkdocsWithConfluence(BasePlugin):
                                 print(f"INFO    - Mkdocs With Confluence: {i} *NEW PAGE*")
                         time.sleep(1)
 
-                    if parent_id is None:
-                        for i in range(11):
-                            while parent_id is None:
-                                try:
-                                    self.add_page(page.title, parent_id, confluence_body)
-                                except requests.exceptions.HTTPError:
-                                    print(
-                                        f"ERR    - HTTP error on adding page. It probably occured due to "
-                                        f"parent ID('{parent_id}') page is not YET synced on server. Retry nb {i}/10..."
-                                    )
-                                    sleep(5)
-                                    parent_id = self.find_page_id(parent)
-                                break
-
+                    retries = PARENT_ID_RETRIES
+                    while parent_id is None:
+                        if retries <= 0:
+                            print(f"ERR: Can't find the right parent_id for {parent}", file=sys.stderr)
+                            sys.exit(1)
+                        print(f"INFO    - let's try find {parent} again", file=sys.stderr)
+                        parent_id = self.find_page_id(parent)
+                        sleep(5)
+                        retries -= 1
+                    print(f"INFO    - We found {parent}'s id! {parent_id}", file=sys.stderr)
                     self.add_page(page.title, parent_id, confluence_body)
 
                     print(f"Trying to ADD page '{page.title}' to parent0({parent}) ID: {parent_id}")
