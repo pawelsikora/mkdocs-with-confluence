@@ -39,6 +39,7 @@ class MkdocsWithConfluence(BasePlugin):
         ("space", config_options.Type(str, default=None)),
         ("parent_page_name", config_options.Type(str, default=None)),
         ("username", config_options.Type(str, default=environ.get("JIRA_USERNAME", None))),
+        ("api_token", config_options.Type(str, default=environ.get("CONFLUENCE_API_TOKEN", None))), # If specified, password is ignored
         ("password", config_options.Type(str, default=environ.get("JIRA_PASSWORD", None))),
         ("enabled_if_env", config_options.Type(str, default=None)),
         ("verbose", config_options.Type(bool, default=False)),
@@ -146,7 +147,10 @@ class MkdocsWithConfluence(BasePlugin):
 
     def on_page_markdown(self, markdown, page, config, files):
         MkdocsWithConfluence._id += 1
-        self.session.auth = (self.config["username"], self.config["password"])
+        if self.config["api_token"]:
+            self.session.auth = (self.config["username"], self.config["api_token"])
+        else:
+            self.session.auth = (self.config["username"], self.config["password"])
 
         if self.enabled:
             if self.simple_log is True:
