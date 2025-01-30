@@ -36,6 +36,7 @@ Use following config and adjust it according to your needs:
         parent_page_name: <YOUR_ROOT_PARENT_PAGE>
         username: <YOUR_USERNAME_TO_CONFLUENCE>
         password: <YOUR_PASSWORD_TO_CONFLUENCE>
+        api_token: <YOUR_CONFLUENCE_API_TOKEN> # takes precedence over 'password'
         enabled_if_env: MKDOCS_TO_CONFLUENCE
         #verbose: true
         #debug: true
